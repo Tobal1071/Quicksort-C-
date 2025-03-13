@@ -1,0 +1,155 @@
+#include <iostream>
+#include <stdlib.h>
+#include <chrono>
+#include <math.h>
+
+using namespace std;
+using namespace chrono;
+
+void
+middle_QuickSort(int* v, long left, long right) {
+
+    long i, j;
+    int pivot, aux;
+    if (left < right)
+    {
+        i = left; j = right;
+        pivot = v[(i + j) / 2];
+        do
+        {
+            while (v[i] < pivot) i++;
+            while (v[j] > pivot) j--;
+            if (i <= j)
+            {
+                aux = v[i]; v[i] = v[j]; v[j] = aux;
+                i++; j--;
+            }
+        } while (i <= j);
+        if (left < j)  middle_QuickSort(v, left, j);
+        if (i < right) middle_QuickSort(v, i, right);
+    }
+}
+void middle_QuickSortASM(int* v, long left, long right);
+
+int main() {
+
+    srand(0);
+
+    cout << "# QuickSort CPU-times in milliseconds:" //apartado d
+        << endl
+        << "# Size \t\t Average CPU time (ms.) \t Average CPU time (us.)"
+        << endl
+        << "# -------------------------------------------------------------------------"
+        << endl;
+
+    //apartado a
+    for (int exp = 15; exp <= 20; exp++) {
+        long size = long(pow(2, exp));
+        int* v = new int[size];
+        if (!v) {
+            cerr << "Error, not enough memory!" << endl;
+            exit(EXIT_FAILURE);
+        }
+
+        long total_time = 0;
+
+        for (int contador = 0; contador < 30; contador++) { //apartado c
+
+            for (long j = 0; j < size; j++)
+                v[j] = rand();
+
+            //apartado b
+            auto start = steady_clock::now();
+            middle_QuickSortASM(v, 0, size - 1);
+            auto end = steady_clock::now();
+
+            total_time += duration_cast<milliseconds>(end - start).count();
+        }
+
+        cout << size << "\t\t\t" << (total_time / 30.0) << "\t\t\t\t" << (1000 * total_time / 30) << endl;
+        delete[] v;
+    }
+} 
+void middle_QuickSortASM(int* v, long left, long right)
+{
+    __asm {
+       
+        mov eax, left  //  i = left 
+        mov ebx, right  // j = right 
+
+        cmp eax, ebx   // if (left >= right) 
+        jge fin // return;
+
+        //pivot = v[(i + j) / 2];
+        mov ecx, eax  
+        add ecx, ebx    
+        shr ecx, 1      
+        mov edx, v           
+        mov esi, [edx + ecx * 4] 
+
+       
+        mov edi, eax          // i = left (guardar en edi para recursión)
+        mov ebp, ebx          // j = right (guardar en ebp para recursión)
+        // do {...} while (i <= j) 
+         bucle_do_while :
+            //while (v[i] < pivot) i++;
+            buscar_i:
+            cmp edi, ebp          // Si i >= j, terminar la partición
+            jge recursion
+            mov ecx, [edx + edi * 4] // v[i]
+            cmp ecx, esi       
+            jge buscar_j         
+            inc edi               // i++
+            jmp buscar_i
+
+            //while (v[j] > pivot) j--
+            buscar_j :
+            cmp edi, ebp          // Si i >= j, terminar la partición
+            jge recursion
+            mov ecx, [edx + ebp * 4] // v[j]
+            cmp ecx, esi          // Comparar v[j] con pivote
+            jle intercambio   // Si v[j] <= pivote, intercambiar
+            dec ebp               // j--
+            jmp buscar_j
+
+            intercambio :
+        // Intercambiar v[i] y v[j]
+         //aux = v[i]; v[i] = v[j]; v[j] = aux; Se hace con temporales
+        mov ecx, [edx + edi * 4]        // temp = v[i]
+            mov esi, [edx + ebp * 4]        // tempj = v[j]
+            mov[edx + edi * 4], esi        // v[i] = tempj
+            mov[edx + ebp * 4], ecx        // v[j] = temp
+            inc edi  // i++
+            dec ebp  // j--
+
+            jmp bucle_do_while
+
+            recursion :
+        // Guardar el estado antes de la recursión
+            push eax  // Guardar left original
+            push ebx  // Guardar right original
+            push edx  // Guardar puntero al arreglo
+
+            //middle_QuickSortASM(v, left, j)
+            push ebp              // j como parámetro right
+            push eax              // left original 
+            push edx              // v
+            call middle_QuickSortASM
+            add esp, 12           // Limpiar la pila
+
+            // Restaurar valores guardados
+            pop edx   // Restaurar puntero al arreglo
+            pop ebx   // Restaurar right original
+            pop eax   // Restaurar left original
+
+            //middle_QuickSortASM(v, i, right)
+            push ebx              // right original
+            push edi              // i como parámetro left
+            push edx              // v
+            call middle_QuickSortASM
+            add esp, 12           // Limpiar la pila
+
+            fin:
+        // Fin de la función
+    }
+}
