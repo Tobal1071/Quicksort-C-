@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <chrono>
 #include <math.h>
+#include <iomanip> // Añadir esta línea para incluir el encabezado iomanip
 
 using namespace std;
 using namespace chrono;
@@ -31,8 +32,11 @@ int main() {
     srand(0);
 
     cout << "# QuickSort CPU-times in milliseconds:" << endl
-        << "# Size \t\t Average CPU time (ms.) \t Average CPU time (us.)" << endl
-        << "# -------------------------------------------------------------------------" << endl;
+        << "# " << setw(10) << "Size\t\t"
+        << setw(20) << "Average CPU time (ms.)\t\t"
+        << setw(20) << "Average CPU time (s)\t\t"
+        << setw(20) << "Average CPU time (us.)\t\t" << endl
+        << "# -------------------------------------------------------------------------------------------------------------------" << endl;
 
     for (int exp = 15; exp <= 20; exp++) {
         long size = long(pow(2, exp));
@@ -55,9 +59,11 @@ int main() {
             total_time += duration_cast<nanoseconds>(end - start).count();
         }
 
-        cout << size << "\t\t\t" << (total_time / 30.0) << " ms\t\t"
-            << (total_time / 30000.0) << " s\t\t"
-            << (1000 * total_time / 30) << " us" << endl;
+       cout<<"\t" << size << "\t\t"
+     << std::setprecision(5)<<(total_time / 30.0) << " ms\t\t"
+     << "\t\t" << std::setprecision(5) << (total_time / 30.0 / 1000) << " s\t\t"
+     << std::setprecision(5) << (total_time / 30.0 * 1000) << " us"
+     << endl;
         delete[] v;
     }
 }
