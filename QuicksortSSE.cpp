@@ -61,11 +61,10 @@ int main() {
         }
 
         cout << "\t" << size << "\t\t"
-             << std::setprecision(5) << (total_time / 30.0) << " ms\t\t"
-             << "\t\t" << std::setprecision(5) << (total_time / 30.0 / 1000) << " s\t\t"
-             << std::setprecision(5) << (total_time / 30.0 * 1000) << " us"
-             << endl;
-
+            << std::setprecision(5) << (total_time / 30.0 / 1000) << " ms\t\t"
+            << "\t\t" << std::setprecision(5) << (total_time / 30.0 / 1000000) << " s\t\t"
+            << std::setprecision(5) << (total_time / 30.0 * 1000) << " us"
+            << endl;
         delete[] v;
     }
 }
