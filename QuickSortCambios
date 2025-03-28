@@ -1,0 +1,311 @@
+#include <iostream>
+#include <stdlib.h>
+#include <chrono>
+#include <math.h>
+#include <iomanip>
+#include <xmmintrin.h> 
+
+using namespace std;
+using namespace chrono;
+
+void middle_QuickSort(int* v, long left, long right);
+extern "C" void __cdecl middle_QuickSortASM(int* v, long left, long right);
+extern "C" void __cdecl middle_QuickSortSSE(int* v, long left, long right);
+
+int main() {
+    srand(0);
+
+    cout << "# QuickSort CPU-times:" << endl
+        << "# " << setw(10) << "Size\t\t"
+        << setw(20) << "Average CPU time (ms.)\t\t"
+        << setw(20) << "Average CPU time (us.)\t\t"
+        << setw(20) << "Average CPU time (ns.)\t\t" << endl
+        << "# --------------------------------------------------------------------------------------" << endl;
+
+    for (int exp = 15; exp <= 19; exp++) {
+        long size = long(pow(2, exp));
+        int* v = new int[size];
+        int* y = new int[size];
+        int* z = new int[size];
+        if (!v) {
+            cerr << "Error, not enough memory!" << endl;
+            exit(EXIT_FAILURE);
+        }
+
+        long total_timeC = 0;
+        long total_timeASM = 0;
+        long total_timeSSE = 0;
+
+        for (int contador = 0; contador < 30; contador++) {
+            for (long j = 0; j < size; j++) {
+                v[j] = rand();
+                y[j] = rand();
+                z[j] = rand();
+            }
+
+            auto startC = steady_clock::now();
+            middle_QuickSort(y, 0, size - 1);
+            auto endC = steady_clock::now();
+            total_timeC += duration_cast<nanoseconds>(endC - startC).count();
+
+            auto startA = steady_clock::now();
+            middle_QuickSortASM(z, 0, size - 1);
+            auto endA = steady_clock::now();
+            total_timeASM += duration_cast<nanoseconds>(endA - startA).count();
+
+            auto startS = steady_clock::now();
+            middle_QuickSortSSE(v, 0, size - 1);
+            auto endS = steady_clock::now();
+            total_timeSSE += duration_cast<nanoseconds>(endS - startS).count();
+        }
+
+        cout << "C++" << endl;
+        cout << "\t" << size << "\t\t"
+            << fixed << setprecision(5) << (total_timeC / 30.0 / 1000000) << " ms\t\t"
+            << fixed << setprecision(5) << (total_timeC / 30.0 / 1000) << " us\t\t"  
+            << fixed << setprecision(5) << (total_timeC / 30.0) << " ns" << endl;    
+
+        cout << "ASM" << endl;
+        cout << "\t" << size << "\t\t"
+            << fixed << setprecision(5) << (total_timeASM / 30.0 / 1000000) << " ms\t\t"  
+            << fixed << setprecision(5) << (total_timeASM / 30.0 / 1000) << " us\t\t"  
+            << fixed << setprecision(5) << (total_timeASM / 30.0) << " ns" << endl;    
+
+        cout << "SSE" << endl;
+        cout << "\t" << size << "\t\t"
+            << fixed << setprecision(5) << (total_timeSSE / 30.0 / 1000000) << " ms\t\t"  
+            << fixed << setprecision(5) << (total_timeSSE / 30.0 / 1000) << " us\t\t" 
+            << fixed << setprecision(5) << (total_timeSSE / 30.0) << " ns" << endl;    
+
+        cout << endl;
+
+        delete[] v;
+        delete[] y;
+        delete[] z;
+    }
+
+}
+
+
+void middle_QuickSort(int* v, long left, long right) {
+    long i, j;
+    int pivot, aux;
+    if (left < right) {
+        i = left; j = right;
+        pivot = v[(i + j) / 2];
+        do {
+            while (v[i] < pivot) i++;
+            while (v[j] > pivot) j--;
+            if (i <= j) {
+                aux = v[i]; v[i] = v[j]; v[j] = aux;
+                i++; j--;
+            }
+        } while (i <= j);
+        if (left < j)  middle_QuickSort(v, left, j);
+        if (i < right) middle_QuickSort(v, i, right);
+    }
+}
+
+extern "C" void __cdecl middle_QuickSortASM(int* v, long left, long right) {
+    __asm {
+        // Guardar los registros que serán modificados en pila
+        push ebx
+        push esi
+        push edi
+        push ebp
+
+        // Cargar valores en registros
+        mov edi, v       // edi = puntero al array
+        mov esi, left    // esi = índice izquierda
+        mov ebp, right   // ebp = índice derecha
+
+        // Verificar left >= right 
+        cmp esi, ebp
+        jge fin_funcion  // Si left >= right, salir de la función
+
+        // Inicializar i y j
+        // i = left, j = right
+        mov ebx, esi     // ebx = i = left
+        mov ecx, ebp     // ecx = j = right
+
+        // pivot = v[(left + right) / 2]
+        mov eax, esi
+        add eax, ebp
+        sar eax, 1       // eax = (left + right) / 2
+
+        // edx = pivote y se guarda el pivote en la pila
+        mov edx, [edi + eax * 4]
+        push edx
+
+        inicio_bucle :
+        // Bucle while (v[i] < pivot) i++;
+    bucle_while1:
+        mov eax, [edi + ebx * 4]  // eax = v[i]
+            cmp eax, [esp]            // Compara con el pivote 
+            jge fin_while1            // Si v[i] >= pivote, salir del bucle
+                inc ebx                    // i++
+                jmp bucle_while1
+
+                fin_while1 :
+
+            // Bucle while (v[j] > pivot) j--;
+        bucle_while2:
+            mov eax, [edi + ecx * 4]  // eax = v[j]
+                cmp eax, [esp]            // Compara con el pivote
+                jle fin_while2            // Si v[j] <= pivote, salir del bucle
+                    dec ecx                    // j--
+                    jmp bucle_while2
+
+                    fin_while2 :
+
+                // Condición if (i <= j)
+                cmp ebx, ecx
+                    jg fin_if
+
+                    // Intercambio entre v[i] y v[j]
+                    mov eax, [edi + ebx * 4]  // eax = v[i]
+                    mov edx, [edi + ecx * 4]  // edx = v[j]
+
+                    mov[edi + ebx * 4], edx  // v[i] = antiguo v[j]
+                    mov[edi + ecx * 4], eax  // v[j] = antiguo v[i]
+
+                    inc ebx
+                    dec ecx
+
+                    fin_if :
+
+                cmp ebx, ecx
+                    jle inicio_bucle
+
+                    // Elimina pivote de la pila
+                    pop edx
+
+                    // Condición if (left < j) QuickSort(v, left, j);
+                    cmp esi, ecx
+                    jge izquierda  // Llamada recursiva izquierda
+
+                    // Guardar registros 
+                    push ecx
+                    push ebx
+
+                    // Preparar parámetros para llamada recursiva
+                    push ecx  // right = j
+                    push esi  // left = left original
+                    push edi  // v
+
+                    call middle_QuickSortASM
+
+                    // Limpiar pila y registros
+                    add esp, 12
+                    pop ebx
+                    pop ecx
+
+                    izquierda :
+
+                // Condición if (i < right) QuickSort(v, i, right);
+                cmp ebx, ebp
+                    jge derecha  // Llamada recursiva derecha
+
+                    // Guardar registros 
+                    push ecx
+                    push ebx
+
+                    // Preparar parámetros para llamada recursiva
+                    push ebp        // right = right original
+                    push ebx        // left = i
+                    push edi        // v
+
+                    call middle_QuickSortASM
+
+                    // Limpiar pila y registros
+                    add esp, 12
+                    pop ebx
+                    pop ecx
+
+                    derecha :
+
+            fin_funcion:
+                // Restaurar registros
+                pop ebp
+                    pop edi
+                    pop esi
+                    pop ebx
+    }
+}
+//Solo trabaja con la mitad superior, puesto que trabajar entero se desborda la pila por la cantidad de llamadas recursivas guardando datos
+extern "C" void __cdecl middle_QuickSortSSE(int* v, long left, long right) {
+    __asm {
+        // Guardar registros en pila
+        push ebx                    // C++: long i, j;
+        push esi                    // C++: long left
+        push edi                    // C++: int* v
+        push ebp                    // C++: long right
+
+        // Cargar parámetros
+        mov edi, v                  // edi = v (puntero al arreglo)
+        mov esi, left               // esi = left
+        mov ebp, right              // ebp = right
+
+        // Comparar left y right
+        cmp esi, ebp                // C++: if (left < right)
+        jge fin_funcion             // Si left >= right, ir a fin_funcion
+
+        // Calcular posición del pivote
+        mov eax, esi                // eax = left
+        add eax, ebp                // eax = left + right
+        sar eax, 1                   // eax = (left + right) / 2
+
+        // Cargar pivote usando SSE
+        movss xmm0, [edi + eax * 4] // xmm0 = pivote = v[(left + right) / 2]
+        shufps xmm0, xmm0, 0x00     // Replicar pivote en todas las posiciones de xmm0
+
+        // Inicializar índices
+        mov ebx, esi                // ebx = i = left
+        mov ecx, ebp                // ecx = j = right
+
+        inicio_particion :
+        // Buscar v[i] < pivot
+    bucle_i:
+        movd xmm1, [edi + ebx * 4]  // Cargar v[i] en xmm1
+            ucomiss xmm1, xmm0          // Comparar v[i] con el pivote
+            jae fin_bucle_i             // Si v[i] >= pivote, salir del bucle
+            inc ebx                     // i++ (C++: i++)
+            jmp bucle_i
+            fin_bucle_i :
+
+        // Buscar v[j] > pivot
+    bucle_j:
+        movd xmm1, [edi + ecx * 4]  // Cargar v[j] en xmm1
+            ucomiss xmm0, xmm1          // Comparar pivote con v[j]
+            jae fin_bucle_j             // Si pivote >= v[j], salir del bucle
+            dec ecx                     // j-- (C++: j--)
+            jmp bucle_j
+            fin_bucle_j :
+
+        // Comparación if (i <= j)
+        cmp ebx, ecx
+            jg fin_if                    // Si i > j, ir a fin_if
+
+            // Intercambio de elementos (C++: aux = v[i]; v[i] = v[j]; v[j] = aux;)
+            mov eax, [edi + ebx * 4]    // eax = v[i]
+            mov edx, [edi + ecx * 4]    // edx = v[j]
+            mov[edi + ebx * 4], edx    // v[i] = v[j]
+            mov[edi + ecx * 4], eax    // v[j] = v[i]
+
+            inc ebx                      // i++
+            dec ecx                      // j--
+            fin_if :
+
+        // Bucle while (i <= j)
+        cmp ebx, ecx                
+            jle inicio_particion         // Si i <= j, continuar el bucle
+
+            fin_funcion :
+        // Restaurar registros
+        pop ebp
+            pop edi
+            pop esi
+            pop ebx
+    }
+}
+
