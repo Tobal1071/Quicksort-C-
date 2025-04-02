@@ -43,30 +43,25 @@ int main() {
         << "# -------------------------------------------------------------------------"
         << endl;
 
-    //apartado a
     for (int exp = 15; exp <= 20; exp++) {
-        long size = long(pow(2, exp));
-        int* v = new int[size];
+        long size = long(pow(2, exp)); // size guarda el tamañp 2^exp
+        int* v = new int[size]; //Memoria dinámica
         if (!v) {
-            cerr << "Error, not enough memory!" << endl;
             exit(EXIT_FAILURE);
         }
-
         long total_time = 0;
+        for (int contador = 0; contador < 30; contador++) { // Hace la prueba 30 veces
+            for (long j = 0; j < size; j++) // 
+                v[j] = rand(); // Le da valores aleatorios a v
 
-        for (int contador = 0; contador < 30; contador++) { //apartado c
-
-            for (long j = 0; j < size; j++)
-                v[j] = rand();
-
-            //apartado b
+            //Recoje el tiempo que tarda en ordenar los 2^exp números
             auto start = steady_clock::now();
             middle_QuickSort(v, 0, size - 1);
             auto end = steady_clock::now();
-
+            //Guarda el tiempo total de las 30 pruebas en milisegundos
             total_time += duration_cast<milliseconds>(end - start).count();
         }
-
+        // Divide en 30 para hacer una media y muestra los tiempos en milisegundos y segundos
         cout << size << "\t\t\t" << (total_time / 30.0) << "\t\t\t\t" << (1000 * total_time / 30) << endl;
         delete[] v;
     }
